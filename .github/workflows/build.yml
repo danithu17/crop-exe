@@ -1,0 +1,20 @@
+name: Build C++ EXE
+on: [push]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Qt & OpenCV
+        run: |
+          vcpkg install qt6-base opencv4
+      - name: Configure CMake
+        run: cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+      - name: Build Project
+        run: cmake --build build --config Release
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: FlashPrint-Enhancer-EXE
+          path: build/Release/*.exe
