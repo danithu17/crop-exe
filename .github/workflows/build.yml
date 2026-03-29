@@ -6,14 +6,21 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4  # v3 වෙනුවට v4 පාවිච්චි කරමු
+        uses: actions/checkout@v4
 
-      - name: Install vcpkg
-        run: vcpkg integrate install
+      # Qt 6 install කරන ලේසිම විදිහ
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '6.5.0'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
 
-      - name: Install Qt & OpenCV via vcpkg
+      # OpenCV විතරක් vcpkg හරහා install කරමු
+      - name: Install OpenCV via vcpkg
         run: |
-          vcpkg install qt6-base:x64-windows opencv4:x64-windows
+          vcpkg install opencv4:x64-windows
 
       - name: Configure CMake
         run: |
@@ -25,7 +32,7 @@ jobs:
         run: cmake --build build --config Release
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4  # මෙතන තමයි ඔයාට Error එක ආවේ, v4 දාන්න
+        uses: actions/upload-artifact@v4
         with:
           name: FlashPrint-Enhancer-EXE
           path: build/Release/*.exe
