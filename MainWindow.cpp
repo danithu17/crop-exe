@@ -1,13 +1,12 @@
 #include "MainWindow.h"
 #include <QFileDialog>
 #include <QMouseEvent>
-#include <algorithm> // For sorting
+#include <algorithm> 
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
-    setWindowTitle("FlashPrint Pro - Fixed Cropping");
+    setWindowTitle("FlashPrint Pro - High Quality");
     setMinimumSize(1000, 850);
     
-    // Modern Dark Theme
     setStyleSheet(
         "QMainWindow { background-color: #000000; }"
         "QPushButton { background-color: #1c1c1e; color: #0A84FF; border-radius: 15px; font-size: 14px; font-weight: bold; border: 1px solid #3a3a3c; }"
@@ -56,19 +55,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
 void MainWindow::loadImage() {
     QString path = QFileDialog::getOpenFileName(this, "Select Image", "", "Images (*.jpg *.png)");
-    if (!fileName.isEmpty()) {
+    if (!path.isEmpty()) {
         rawImage = cv::imread(path.toStdString());
         points.clear();
-        processedImage = cv::Mat(); // Reset processed image
         updateDisplay(rawImage);
-        statusLabel->setText("TAP 4 CORNERS OF THE PAPER (ANY ORDER)");
+        statusLabel->setText("TAP 4 CORNERS OF THE DOCUMENT");
     }
 }
 
 void MainWindow::mousePressEvent(QMouseEvent *event) {
     if (rawImage.empty()) return;
-    
-    // Map globally to the imageLabel local coordinates
     QPoint p = imageLabel->mapFromParent(event->pos());
     if (imageLabel->rect().contains(p) && points.size() < 4) {
         float sx = (float)rawImage.cols / imageLabel->width();
@@ -81,82 +77,64 @@ void MainWindow::mousePressEvent(QMouseEvent *event) {
 void MainWindow::updateDisplay(const cv::Mat& img) {
     if (img.empty()) return;
     cv::Mat t; img.copyTo(t);
-    for (auto p : points) cv::circle(t, p, 25, cv::Scalar(0, 255, 0), -1); // Draw Green Dots
-    
+    for (auto p : points) cv::circle(t, p, 25, cv::Scalar(0, 255, 0), -1);
     cv::Mat rgb; cv::cvtColor(t, rgb, cv::COLOR_BGR2RGB);
     QImage qi(rgb.data, rgb.cols, rgb.rows, rgb.step, QImage::Format_RGB888);
     imageLabel->setPixmap(QPixmap::fromImage(qi).scaled(imageLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
 }
 
-// Function to auto-order points: Top-Left, Top-Right, Bottom-Right, Bottom-Left
+// Helper to order points
 void orderPoints(std::vector<cv::Point2f>& pts) {
-    std::sort(pts.begin(), pts.end(), [](const cv::Point2f& a, const cv::Point2f& b) {
-        return a.x < b.x;
-    });
-
-    std::vector<cv::Point2f> leftMost = {pts[0], pts[1]};
-    std::vector<cv::Point2f> rightMost = {pts[2], pts[3]};
-
-    // Sort leftmost points by y to find top-left and bottom-left
-    std::sort(leftMost.begin(), leftMost.end(), [](const cv::Point2f& a, const cv::Point2f& b) {
-        return a.y < b.y;
-    });
-    cv::Point2f tl = leftMost[0];
-    cv::Point2f bl = leftMost[1];
-
-    // Sort rightmost points by y to find top-right and bottom-right
-    std::sort(rightMost.begin(), rightMost.end(), [](const cv::Point2f& a, const cv::Point2f& b) {
-        return a.y < b.y;
-    });
-    cv::Point2f tr = rightMost[0];
-    cv::Point2f br = rightMost[1];
-
-    pts = {tl, tr, br, bl};
+    std::sort(pts.begin(), pts.end(), [](const cv::Point2f& a, const cv::Point2f& b) { return a.x < b.x; });
+    std::vector<cv::Point2f> left = {pts[0], pts[1]}, right = {pts[2], pts[3]};
+    std::sort(left.begin(), left.end(), [](const cv::Point2f& a, const cv::Point2f& b) { return a.y < b.y; });
+    std::sort(right.begin(), right.end(), [](const cv::Point2f& a, const cv::Point2f& b) { return a.y < b.y; });
+    pts = {left[0], right[0], right[1], left[1]};
 }
 
 void MainWindow::processCrop() {
     if (points.size() == 4 && !rawImage.empty()) {
-        orderPoints(points); // Ensure correct point order
-        
-        // Calculate dynamic dimensions
-        float widthA = std::sqrt(std::pow(points[2].x - points[3].x, 2) + std::pow(points[2].y - points[3].y, 2));
-        float widthB = std::sqrt(std::pow(points[1].x - points[0].x, 2) + std::pow(points[1].y - points[0].y, 2));
-        int maxWidth = std::max((int)widthA, (int)widthB);
+        orderPoints(points);
+        float w1 = std::sqrt(std::pow(points[2].x - points[3].x, 2) + std::pow(points[2].y - points[3].y, 2));
+        float w2 = std::sqrt(std::pow(points[1].x - points[0].x, 2) + std::pow(points[1].y - points[0].y, 2));
+        int mW = std::max((int)w1, (int)w2);
+        float h1 = std::sqrt(std::pow(points[1].x - points[2].x, 2) + std::pow(points[1].y - points[2].y, 2));
+        float h2 = std::sqrt(std::pow(points[0].x - points[3].x, 2) + std::pow(points[0].y - points[3].y, 2));
+        int mH = std::max((int)h1, (int)h2);
 
-        float heightA = std::sqrt(std::pow(points[1].x - points[2].x, 2) + std::pow(points[1].y - points[2].y, 2));
-        float heightB = std::sqrt(std::pow(points[0].x - points[3].x, 2) + std::pow(points[0].y - points[3].y, 2));
-        int maxHeight = std::max((int)heightA, (int)heightB);
-
-        cv::Point2f dst[] = {{0,0}, {(float)maxWidth, 0}, {(float)maxWidth, (float)maxHeight}, {0, (float)maxHeight}};
+        cv::Point2f dst[] = {{0,0}, {(float)mW, 0}, {(float)mW, (float)mH}, {0, (float)mH}};
         cv::Mat M = cv::getPerspectiveTransform(points.data(), dst);
-        cv::warpPerspective(rawImage, processedImage, M, cv::Size(maxWidth, maxHeight));
+        cv::warpPerspective(rawImage, processedImage, M, cv::Size(mW, mH));
         
-        // Clear points to focus on the cropped area
         points.clear();
         updateDisplay(processedImage);
-        statusLabel->setText("CROPPED SUCCESSFULLY");
-    } else {
-        statusLabel->setText("PLEASE SELECT 4 CORNERS FIRST!");
+        statusLabel->setText("CROP COMPLETE");
     }
 }
 
 void MainWindow::enhanceImage() {
     if (processedImage.empty()) return;
-    cv::Mat g, e;
-    cv::cvtColor(processedImage, g, cv::COLOR_BGR2GRAY);
-    cv::adaptiveThreshold(g, e, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 13, 5);
+    cv::Mat gray, enhanced;
+    cv::cvtColor(processedImage, gray, cv::COLOR_BGR2GRAY);
     
-    // Denoising to clean up artifacts
-    cv::fastNlMeansDenoising(e, e, 10, 7, 21);
+    // Step 1: Remove Noise
+    cv::GaussianBlur(gray, gray, cv::Size(3, 3), 0);
     
-    cv::cvtColor(e, processedImage, cv::COLOR_GRAY2BGR);
+    // Step 2: Adaptive Threshold for scan effect
+    cv::adaptiveThreshold(gray, enhanced, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 15, 8);
+    
+    // Step 3: Morphological operation to bold the text
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(2, 2));
+    cv::erode(enhanced, enhanced, kernel); 
+
+    cv::cvtColor(enhanced, processedImage, cv::COLOR_GRAY2BGR);
     updateDisplay(processedImage);
-    statusLabel->setText("QUALITY ENHANCED FOR PRINTING");
+    statusLabel->setText("SCAN QUALITY ENHANCED");
 }
 
 void MainWindow::saveImage() {
     if (processedImage.empty()) return;
-    QString s = QFileDialog::getSaveFileName(this, "Save Print Ready Image", "", "PNG (*.png);;JPG (*.jpg)");
+    QString s = QFileDialog::getSaveFileName(this, "Save Image", "", "PNG (*.png)");
     if (!s.isEmpty()) {
         cv::imwrite(s.toStdString(), processedImage);
         statusLabel->setText("SAVED TO DISK");
