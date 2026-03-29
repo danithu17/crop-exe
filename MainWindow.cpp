@@ -1,133 +1,112 @@
 #include "MainWindow.h"
 #include <QFileDialog>
 #include <QMouseEvent>
-#include <QGraphicsDropShadowEffect>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
-    setWindowTitle("FlashPrint Enhancer v1.0");
-    setMinimumSize(1000, 800);
-    applyAppleStyle();
+    setWindowTitle("FlashPrint Pro - Apple Edition");
+    setMinimumSize(1000, 850);
+    
+    // Apple Dark Theme Stylesheet
+    setStyleSheet(
+        "QMainWindow { background-color: #000000; }"
+        "QPushButton { background-color: #1c1c1e; color: #0A84FF; border-radius: 15px; font-size: 14px; font-weight: bold; border: 1px solid #3a3a3c; }"
+        "QPushButton:hover { background-color: #2c2c2e; border: 1px solid #0A84FF; }"
+        "QLabel#ImageCanvas { background-color: #1c1c1e; border: 2px solid #2c2c2e; border-radius: 25px; }"
+    );
 
     QWidget *centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
-    QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
-    mainLayout->setContentsMargins(30, 30, 30, 30);
-    mainLayout->setSpacing(20);
+    QVBoxLayout *layout = new QVBoxLayout(centralWidget);
+    layout->setContentsMargins(40, 20, 40, 40);
 
-    // Header Label
-    QLabel *titleLabel = new QLabel("FlashPrint Enhancer", this);
-    titleLabel->setStyleSheet("font-size: 28px; font-weight: bold; color: #FFFFFF;");
-    mainLayout->addWidget(titleLabel, 0, Qt::AlignCenter);
+    QLabel *header = new QLabel("FlashPrint", this);
+    header->setStyleSheet("font-size: 32px; font-weight: 800; color: white; margin-bottom: 10px;");
+    layout->addWidget(header, 0, Qt::AlignCenter);
 
-    // Image Display Area (Glassmorphism effect placeholder)
-    imageLabel = new QLabel("Load an image to start cropping...", this);
+    imageLabel = new QLabel(this);
+    imageLabel->setObjectName("ImageCanvas");
+    imageLabel->setFixedSize(850, 550);
     imageLabel->setAlignment(Qt::AlignCenter);
-    imageLabel->setStyleSheet("background-color: #2c2c2e; border: 2px solid #3a3a3c; border-radius: 20px; color: #8e8e93; font-size: 16px;");
-    imageLabel->setFixedSize(800, 500);
-    mainLayout->addWidget(imageLabel, 1, Qt::AlignCenter);
+    layout->addWidget(imageLabel, 1, Qt::AlignCenter);
 
-    statusLabel = new QLabel("Ready", this);
-    statusLabel->setStyleSheet("color: #0A84FF; font-weight: bold;");
-    mainLayout->addWidget(statusLabel, 0, Qt::AlignCenter);
+    statusLabel = new QLabel("READY TO SCAN", this);
+    statusLabel->setStyleSheet("color: #8e8e93; letter-spacing: 2px; font-size: 12px;");
+    layout->addWidget(statusLabel, 0, Qt::AlignCenter);
 
-    // Control Buttons Container
-    QHBoxLayout *btnLayout = new QHBoxLayout();
-    btnLayout->setSpacing(15);
+    QHBoxLayout *btns = new QHBoxLayout();
+    btns->setSpacing(20);
 
-    auto createStyledBtn = [&](QString text, QString color) {
-        QPushButton *btn = new QPushButton(text, this);
-        btn->setFixedSize(180, 50);
-        btn->setStyleSheet(QString(
-            "QPushButton { background-color: %1; color: white; border-radius: 12px; font-weight: bold; font-size: 14px; border: none; }"
-            "QPushButton:hover { background-color: #5AC8FA; }"
-            "QPushButton:pressed { background-color: #0071e3; }"
-        ).arg(color));
-        return btn;
-    };
+    QPushButton *b1 = new QPushButton("OPEN PHOTO", this);
+    QPushButton *b2 = new QPushButton("CROP DOCUMENT", this);
+    QPushButton *b3 = new QPushButton("ENHANCE", this);
+    QPushButton *b4 = new QPushButton("SAVE TO PC", this);
 
-    QPushButton *btnLoad = createStyledBtn("Load Image", "#3a3a3c");
-    QPushButton *btnCrop = createStyledBtn("Crop Now", "#34C759");
-    QPushButton *btnEnhance = createStyledBtn("Enhance", "#0A84FF");
-    QPushButton *btnSave = createStyledBtn("Save Final", "#FF9500");
+    b1->setFixedSize(180, 55); b2->setFixedSize(180, 55);
+    b3->setFixedSize(180, 55); b4->setFixedSize(180, 55);
 
-    btnLayout->addWidget(btnLoad);
-    btnLayout->addWidget(btnCrop);
-    btnLayout->addWidget(btnEnhance);
-    btnLayout->addWidget(btnSave);
-    mainLayout->addLayout(btnLayout);
+    btns->addWidget(b1); btns->addWidget(b2); btns->addWidget(b3); btns->addWidget(b4);
+    layout->addLayout(btns);
 
-    // Connections
-    connect(btnLoad, &QPushButton::clicked, this, &MainWindow::loadImage);
-    connect(btnCrop, &QPushButton::clicked, this, &MainWindow::processCrop);
-    connect(btnEnhance, &QPushButton::clicked, this, &MainWindow::enhanceImage);
-    connect(btnSave, &QPushButton::clicked, this, &MainWindow::saveImage);
-}
-
-void MainWindow::applyAppleStyle() {
-    this->setStyleSheet("QMainWindow { background-color: #1c1c1e; }");
+    connect(b1, &QPushButton::clicked, this, &MainWindow::loadImage);
+    connect(b2, &QPushButton::clicked, this, &MainWindow::processCrop);
+    connect(b3, &QPushButton::clicked, this, &MainWindow::enhanceImage);
+    connect(b4, &QPushButton::clicked, this, &MainWindow::saveImage);
 }
 
 void MainWindow::loadImage() {
-    QString fileName = QFileDialog::getOpenFileName(this, "Select Photo", "", "Images (*.png *.jpg *.jpeg)");
-    if (!fileName.isEmpty()) {
-        rawImage = cv::imread(fileName.toStdString());
+    QString path = QFileDialog::getOpenFileName(this, "Select Image", "", "Images (*.jpg *.png)");
+    if (!path.isEmpty()) {
+        rawImage = cv::imread(path.toStdString());
         points.clear();
         updateDisplay(rawImage);
-        statusLabel->setText("Select 4 corners on the document...");
+        statusLabel->setText("TAP 4 CORNERS OF THE PAPER");
     }
 }
 
 void MainWindow::mousePressEvent(QMouseEvent *event) {
-    // Map globally to the imageLabel local coordinates
-    QPoint localPos = imageLabel->mapFromParent(event->pos());
-    if (imageLabel->rect().contains(localPos) && points.size() < 4 && !rawImage.empty()) {
-        float scaleX = (float)rawImage.cols / imageLabel->width();
-        float scaleY = (float)rawImage.rows / imageLabel->height();
-        points.push_back(cv::Point2f(localPos.x() * scaleX, localPos.y() * scaleY));
+    QPoint p = imageLabel->mapFromParent(event->pos());
+    if (imageLabel->rect().contains(p) && points.size() < 4 && !rawImage.empty()) {
+        float sx = (float)rawImage.cols / imageLabel->width();
+        float sy = (float)rawImage.rows / imageLabel->height();
+        points.push_back(cv::Point2f(p.x() * sx, p.y() * sy));
         updateDisplay(rawImage);
     }
 }
 
 void MainWindow::updateDisplay(const cv::Mat& img) {
     if (img.empty()) return;
-    cv::Mat temp;
-    img.copyTo(temp);
-    for (auto p : points) cv::circle(temp, p, 20, cv::Scalar(0, 255, 0), -1);
-
-    cv::Mat rgb;
-    cv::cvtColor(temp, rgb, cv::COLOR_BGR2RGB);
-    QImage qimg(rgb.data, rgb.cols, rgb.rows, rgb.step, QImage::Format_RGB888);
-    imageLabel->setPixmap(QPixmap::fromImage(qimg).scaled(imageLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    cv::Mat t; img.copyTo(t);
+    for (auto p : points) cv::circle(t, p, 25, cv::Scalar(0, 255, 0), -1);
+    cv::Mat rgb; cv::cvtColor(t, rgb, cv::COLOR_BGR2RGB);
+    QImage qi(rgb.data, rgb.cols, rgb.rows, rgb.step, QImage::Format_RGB888);
+    imageLabel->setPixmap(QPixmap::fromImage(qi).scaled(imageLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
 }
 
 void MainWindow::processCrop() {
     if (points.size() == 4) {
-        cv::Point2f dst_pts[] = {{0,0}, {800,0}, {800,1000}, {0,1000}};
-        cv::Mat M = cv::getPerspectiveTransform(points.data(), dst_pts);
-        cv::warpPerspective(rawImage, processedImage, M, cv::Size(800, 1000));
+        cv::Point2f dst[] = {{0,0}, {800,0}, {800,1100}, {0,1100}};
+        cv::Mat M = cv::getPerspectiveTransform(points.data(), dst);
+        cv::warpPerspective(rawImage, processedImage, M, cv::Size(800, 1100));
         updateDisplay(processedImage);
-        statusLabel->setText("Cropped! Now Enhance or Save.");
+        statusLabel->setText("CROPPED SUCCESSFULLY");
     }
 }
 
 void MainWindow::enhanceImage() {
     if (processedImage.empty()) return;
-    cv::Mat gray, thresh;
-    cv::cvtColor(processedImage, gray, cv::COLOR_BGR2GRAY);
-    cv::adaptiveThreshold(gray, thresh, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 11, 2);
-    processedImage = thresh;
-    
-    // Convert back to BGR for display consistency
-    cv::cvtColor(processedImage, processedImage, cv::COLOR_GRAY2BGR);
+    cv::Mat g, e;
+    cv::cvtColor(processedImage, g, cv::COLOR_BGR2GRAY);
+    cv::adaptiveThreshold(g, e, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 13, 5);
+    cv::cvtColor(e, processedImage, cv::COLOR_GRAY2BGR);
     updateDisplay(processedImage);
-    statusLabel->setText("Enhanced for Printing!");
+    statusLabel->setText("QUALITY ENHANCED");
 }
 
 void MainWindow::saveImage() {
     if (processedImage.empty()) return;
-    QString fileName = QFileDialog::getSaveFileName(this, "Save Print Ready Image", "", "PNG (*.png);;JPG (*.jpg)");
-    if (!fileName.isEmpty()) {
-        cv::imwrite(fileName.toStdString(), processedImage);
-        statusLabel->setText("Saved successfully!");
+    QString s = QFileDialog::getSaveFileName(this, "Save Image", "", "PNG (*.png)");
+    if (!s.isEmpty()) {
+        cv::imwrite(s.toStdString(), processedImage);
+        statusLabel->setText("SAVED TO DISK");
     }
 }
