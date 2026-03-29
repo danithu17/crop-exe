@@ -5,16 +5,27 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Qt & OpenCV
+      - name: Checkout Code
+        uses: actions/checkout@v4  # v3 වෙනුවට v4 පාවිච්චි කරමු
+
+      - name: Install vcpkg
+        run: vcpkg integrate install
+
+      - name: Install Qt & OpenCV via vcpkg
         run: |
-          vcpkg install qt6-base opencv4
+          vcpkg install qt6-base:x64-windows opencv4:x64-windows
+
       - name: Configure CMake
-        run: cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+        run: |
+          cmake -B build -S . `
+          -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+
       - name: Build Project
         run: cmake --build build --config Release
+
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # මෙතන තමයි ඔයාට Error එක ආවේ, v4 දාන්න
         with:
           name: FlashPrint-Enhancer-EXE
           path: build/Release/*.exe
