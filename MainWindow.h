@@ -4,7 +4,9 @@
 #include <QMainWindow>
 #include <QPushButton>
 #include <QLabel>
-#include <QImage>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QFrame>
 #include <vector>
 #include <opencv2/opencv.hpp>
 
@@ -21,13 +23,17 @@ private slots:
     void loadImage();
     void processCrop();
     void enhanceImage();
+    void saveImage();
 
 private:
     QLabel *imageLabel;
+    QLabel *statusLabel;
     cv::Mat rawImage;
     cv::Mat processedImage;
     std::vector<cv::Point2f> points;
-    void updateDisplay();
+    
+    void updateDisplay(const cv::Mat& img);
+    void applyAppleStyle();
 };
 
 #endif

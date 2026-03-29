@@ -8,7 +8,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Qt 6 install කරන ලේසිම විදිහ
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
@@ -17,7 +16,6 @@ jobs:
           target: 'desktop'
           arch: 'win64_msvc2019_64'
 
-      # OpenCV විතරක් vcpkg හරහා install කරමු
       - name: Install OpenCV via vcpkg
         run: |
           vcpkg install opencv4:x64-windows
